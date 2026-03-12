@@ -31,7 +31,7 @@ cp -r stepfun-search ~/.openclaw/workspace/skills/
 ```
 
 **获取 API Key：**
-1. 访问 [StepFun 官网](https://stepfun.com)
+1. 访问 [StepFun 官网](https://platform.stepfun.com/docs/zh/api-reference/Search/search)
 2. 注册账号并登录
 3. 在控制台中申请 API Key
 4. 复制 Key 到上面的配置中
