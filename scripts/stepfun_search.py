@@ -10,6 +10,11 @@ import os
 import requests
 from typing import Optional, List, Dict
 
+try:
+    from tavily import TavilyClient
+except ImportError:
+    TavilyClient = None
+
 def stepfun_search(query: str, n: int = 5, category: str = "research") -> Optional[Dict]:
     """
     调用 StepFun 网络搜索 API
@@ -67,6 +72,85 @@ def stepfun_search(query: str, n: int = 5, category: str = "research") -> Option
     except json.JSONDecodeError as e:
         print(f"❌ JSON decode error: {e}", file=sys.stderr)
         return None
+
+def tavily_search(query: str, n: int = 5) -> Optional[Dict]:
+    """
+    调用 Tavily 搜索 API
+
+    Args:
+        query: 搜索查询语句
+        n: 返回结果数量（1-10）
+
+    Returns:
+        dict: 与 StepFun 格式一致的搜索结果或 None（失败）
+    """
+    if TavilyClient is None:
+        print("❌ Error: tavily-python is not installed. Run: pip install tavily-python", file=sys.stderr)
+        return None
+
+    api_key = os.getenv("TAVILY_API_KEY")
+
+    if not api_key:
+        print("❌ Error: TAVILY_API_KEY not set in environment", file=sys.stderr)
+        return None
+
+    try:
+        print(f"🔍 Searching (Tavily): {query} (results: {n})", file=sys.stderr)
+        client = TavilyClient(api_key=api_key)
+        response = client.search(
+            query=query,
+            max_results=min(max(n, 1), 10),
+            search_depth="basic",
+        )
+
+        # Map Tavily results to the same shape as StepFun results
+        results = []
+        for item in response.get("results", []):
+            results.append({
+                "title": item.get("title", ""),
+                "url": item.get("url", ""),
+                "snippet": item.get("content", ""),
+                "source": "tavily",
+            })
+
+        print(f"✅ Found {len(results)} results (Tavily)", file=sys.stderr)
+        return {"results": results}
+
+    except Exception as e:
+        print(f"❌ Tavily search error: {e}", file=sys.stderr)
+        return None
+
+
+def search(query: str, n: int = 5, category: str = "research") -> Optional[Dict]:
+    """
+    统一搜索入口：根据 SEARCH_PROVIDER 环境变量选择后端。
+    支持 StepFun（默认）和 Tavily，并在 StepFun 失败时自动回退到 Tavily。
+
+    Args:
+        query: 搜索查询语句
+        n: 返回结果数量（1-10）
+        category: 搜索分类（仅 StepFun 使用）
+
+    Returns:
+        dict: 搜索结果或 None（失败）
+    """
+    provider = os.getenv("SEARCH_PROVIDER", "stepfun").lower()
+
+    if provider == "tavily":
+        return tavily_search(query, n)
+
+    # Default: StepFun with Tavily fallback
+    result = stepfun_search(query, n, category)
+    if result is not None:
+        return result
+
+    # Fallback to Tavily on StepFun failure (e.g. 429 / 5xx)
+    if os.getenv("TAVILY_API_KEY"):
+        print("⚠️ StepFun failed, falling back to Tavily...", file=sys.stderr)
+        return tavily_search(query, n)
+
+    return None
+
 
 def format_results_markdown(results: List[Dict]) -> str:
     """
@@ -133,8 +217,8 @@ def main():
     category = sys.argv[3] if len(sys.argv) > 3 else "research"
     output_format = sys.argv[4] if len(sys.argv) > 4 else "json"
     
-    # 执行搜索
-    result = stepfun_search(query, n, category)
+    # 执行搜索（通过统一入口，支持 StepFun / Tavily 切换与回退）
+    result = search(query, n, category)
     if not result:
         print(json.dumps({"error": "Search failed"}, ensure_ascii=False))
         sys.exit(1)

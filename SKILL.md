@@ -18,7 +18,9 @@ API configuration is stored in `~/.openclaw/openclaw.json` using the **skills** 
       "stepfun-search": {
         "enabled": true,
         "env": {
-          "STEPFUN_API_KEY": "YOUR_API_KEY"
+          "STEPFUN_API_KEY": "YOUR_STEPFUN_API_KEY",
+          "TAVILY_API_KEY": "YOUR_TAVILY_API_KEY",
+          "SEARCH_PROVIDER": "stepfun"
         }
       }
     }
@@ -26,7 +28,15 @@ API configuration is stored in `~/.openclaw/openclaw.json` using the **skills** 
 }
 ```
 
-The API key is loaded from the `STEPFUN_API_KEY` environment variable, which is automatically set by OpenClaw's skill system.
+**Environment variables:**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `STEPFUN_API_KEY` | Yes (default provider) | StepFun API key |
+| `TAVILY_API_KEY` | Optional | Tavily API key. Required when `SEARCH_PROVIDER=tavily`, also used as automatic fallback when StepFun fails (429/5xx). Get your key at https://app.tavily.com |
+| `SEARCH_PROVIDER` | Optional | `stepfun` (default) or `tavily`. Controls which search backend is used. |
+
+The API keys are loaded from environment variables, which are automatically set by OpenClaw's skill system.
 
 ### 📝 Migration Note (2026-03-09)
 
